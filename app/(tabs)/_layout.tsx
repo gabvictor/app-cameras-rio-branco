@@ -3,7 +3,6 @@ import { Tabs, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
 import { useColorScheme, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 
-// Este layout gere a barra de abas principal da aplicação.
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
   const isDarkTheme = colorScheme === 'dark';
@@ -40,7 +39,8 @@ export default function TabsLayout() {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
         },
-      }}>
+      }}
+    >
       <Tabs.Screen
         name="index"
         options={{
@@ -50,29 +50,52 @@ export default function TabsLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="configuracao"
+        options={{
+          title: 'Ajustes',
+          tabBarIcon: ({ color }) => <Feather name="settings" size={28} color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="perfil"
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="user" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="mapa"
+        options={{
+          title: 'Mapa',
+          tabBarIcon: ({ color, size }) => <Feather name="map-pin" size={size} color={color} />,
+        }}
+      />
+
       <Tabs.Screen
         name="[code]"
         options={{
           href: null,
           headerShown: true,
           headerTitleAlign: 'center',
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
+          headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
-          headerTitleStyle: {
-            color: colors.text,
-          },
-          // Adiciona o botão "Voltar" personalizado
+          headerTitleStyle: { color: colors.text },
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.headerLeftContainer}>
               <Feather name="chevron-left" size={24} color={colors.primary} />
               <Text style={styles.headerLeftText}>Voltar</Text>
             </TouchableOpacity>
           ),
-          tabBarStyle: { display: 'none' } 
+          tabBarStyle: { display: 'none' },
         }}
       />
     </Tabs>
+
   );
 }

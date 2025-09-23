@@ -6,12 +6,12 @@ import { Feather } from '@expo/vector-icons';
 
 export default function TermsScreen() {
   const router = useRouter();
-  const styles = getDynamicStyles(); 
+  const styles = getDynamicStyles();
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <Stack.Screen options={{ headerShown: false }} />
-      
+
       {/* Cabeçalho Customizado */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -19,7 +19,7 @@ export default function TermsScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Termos e Política de Privacidade</Text>
       </View>
-      
+
       <ScrollView contentContainerStyle={styles.container}>
         <Text style={styles.updateDate}>
           Última atualização: Setembro de 2025
@@ -28,12 +28,12 @@ export default function TermsScreen() {
         <Text style={styles.paragraph}>
           Este aplicativo é um projeto independente. Ao criar uma conta e utilizar este serviço, você ("Usuário") concorda com os seguintes Termos e a nossa Política de Privacidade.
         </Text>
-        
+
         <Text style={styles.sectionTitle}>1. Natureza do Serviço</Text>
         <Text style={styles.paragraph}>
           Este aplicativo funciona como um agregador, utilizando URLs de acesso público para exibir um fluxo de imagens atualizadas de câmaras de monitorização, simulando uma transmissão em direto. O desenvolvedor não possui, não opera, e não tem qualquer afiliação com as câmaras ou com as entidades responsáveis pela sua operação.
         </Text>
-        
+
         <Text style={styles.sectionTitle}>2. Isenção de Responsabilidade</Text>
         <Text style={styles.paragraph}>
           O desenvolvedor não tem controlo sobre o conteúdo ou disponibilidade das transmissões. Portanto, não se responsabiliza por qualquer imagem ou evento visualizado. Este aplicativo não possui qualquer vínculo governamental ou com a Prefeitura de Rio Branco.
@@ -48,7 +48,7 @@ export default function TermsScreen() {
         <Text style={styles.paragraph}>
           Para criar uma conta e utilizar este serviço, o Usuário deve ter pelo menos 18 anos de idade ou a idade de maioridade legal na sua jurisdição.
         </Text>
-        
+
         <Text style={styles.sectionTitle}>5. Política de Privacidade</Text>
         <Text style={styles.paragraph}>
           Nós levamos a sua privacidade a sério. As informações que recolhemos são:
@@ -67,7 +67,7 @@ export default function TermsScreen() {
         <Text style={styles.paragraph}>
           O Usuário é responsável por manter a confidencialidade da sua palavra-passe e por todas as atividades que ocorram na sua conta. O desenvolvedor não será responsável por qualquer perda ou dano resultante do incumprimento desta obrigação de segurança.
         </Text>
-        
+
         <Text style={styles.sectionTitle}>7. Disponibilidade do Serviço</Text>
         <Text style={styles.paragraph}>
           O serviço é fornecido "como está". Não há garantias de que os URLs de acesso às câmaras estarão sempre funcionais.
@@ -97,7 +97,7 @@ export default function TermsScreen() {
         <Text style={styles.paragraph}>
           Dúvidas sobre estes Termos? Entre em contato: [seu-email-de-contato@exemplo.com].
         </Text>
-        
+
         <TouchableOpacity style={styles.button} onPress={() => router.back()}>
           <Text style={styles.buttonText}>Entendi e Aceito</Text>
         </TouchableOpacity>
@@ -108,8 +108,8 @@ export default function TermsScreen() {
 
 // --- ESTILOS ---
 const getDynamicStyles = () => StyleSheet.create({
-  safeArea: { 
-    flex: 1, 
+  safeArea: {
+    flex: 1,
     backgroundColor: '#ffffff',
   },
   header: {
@@ -180,4 +180,3 @@ const getDynamicStyles = () => StyleSheet.create({
     fontSize: 16,
   },
 });
-

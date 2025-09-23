@@ -1,30 +1,35 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { 
-  StyleSheet, 
-  Text, 
-  View, 
-  FlatList, 
-  Image, 
-  SafeAreaView, 
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  FlatList,
+  Image,
   ActivityIndicator,
   TouchableOpacity,
   useColorScheme,
   Animated,
   useWindowDimensions,
-  Platform, // Importar Platform
-  StatusBar // Importar StatusBar
+  Platform,
+  StatusBar,
+  TextInput,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { signOut } from 'firebase/auth';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { auth } from '../../core/firebaseConfig';
+import { useSettings } from '../../core/SettingsContext';
 
-// --- CONFIGURAÇÕES ---
 const API_URL = 'https://camerasriobranco.site/status-cameras';
-const UPDATE_INTERVAL_MS = 1 * 15 * 1000; // 15 segundos
-const TABLET_BREAKPOINT = 768;
+const FULL_REFRESH_INTERVAL_MS = 15 * 1000;
+const TABLET_BREAKPOINT = 568; //arrumar para 768 dps
+const INITIAL_CATEGORIES_TO_SHOW = 5;
+const ITEMS_PER_PAGE = 16;
+const SEARCH_DEBOUNCE_MS = 250;
 
-// --- TIPO DE DADO ---
 type Camera = {
   codigo: string;
   nome: string;
@@ -32,174 +37,427 @@ type Camera = {
   categoria: string;
   coords: [number, number] | null;
   descricao: string;
+  level?: number;
 };
 
-// --- COMPONENTES VISUAIS AUXILIARES ---
-const UpdateProgressBar = ({ progress, styles }: { progress: number, styles: any }) => (
-  <View style={styles.progressBarContainer}>
-    <Animated.View style={[styles.progressBar, { width: `${progress}%` }]} />
-  </View>
-);
+type ListItem = Camera | { type: 'header'; title: string };
 
-const CameraCard = ({ item, onPress, styles, updateTimestamp }: { item: Camera, onPress: () => void, styles: any, updateTimestamp: number }) => {
-  const isOnline = item.status === 'online';
-  
-  const getImageUrl = (timestamp: number) => isOnline
-    ? `https://cameras.riobranco.ac.gov.br/api/camera?code=${item.codigo}&t=${timestamp}`
-    : `https://placehold.co/400x300/e0e0e0/757575?text=Offline`;
-
-  const [visibleImageUrl, setVisibleImageUrl] = useState(() => getImageUrl(updateTimestamp));
-  const [loadingImageUrl, setLoadingImageUrl] = useState(visibleImageUrl);
-  const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    setImageError(false);
-    if (isOnline) {
-      setLoadingImageUrl(getImageUrl(updateTimestamp));
-    } else {
-      setVisibleImageUrl(getImageUrl(updateTimestamp));
-    }
-  }, [updateTimestamp, isOnline, item.codigo]);
-
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, [fadeAnim]);
-
+const UpdateProgressBar = ({ progressAnim, styles }: { progressAnim: Animated.Value; styles: any }) => {
+  const width = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+  });
   return (
-    <Animated.View style={[{ opacity: fadeAnim }, styles.cardContainer]}>
-      <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.8} disabled={!isOnline}>
-        <View style={styles.imageWrapper}>
-          {isOnline && !imageError ? (
-            <>
-              <Image 
-                key="visible" 
-                source={{ uri: visibleImageUrl }} 
-                style={styles.cameraImage} 
-                onError={() => setImageError(true)}
-              />
-              {visibleImageUrl !== loadingImageUrl && (
-                <Image
-                  key="loading"
-                  source={{ uri: loadingImageUrl }}
-                  style={StyleSheet.absoluteFill}
-                  onLoad={() => setVisibleImageUrl(loadingImageUrl)}
-                  onError={() => setImageError(true)}
-                />
-              )}
-            </>
-          ) : (
-            <View style={styles.offlineOverlay}>
-              <Feather name={imageError ? "alert-triangle" : "video-off"} size={32} color="#9ca3af" />
-              <Text style={styles.offlineText}>{imageError ? "Erro na Imagem" : "Offline"}</Text>
-            </View>
-          )}
-        </View>
-        <View style={styles.infoContainer}>
-          <Text style={styles.cameraName} numberOfLines={1}>{item.nome}</Text>
-          <View style={styles.badgeContainer}>
-            <Text style={styles.cameraCategory} numberOfLines={1}>{item.categoria}</Text>
-            <View style={[styles.statusBadge, isOnline ? styles.statusBadgeOnline : styles.statusBadgeOffline]}>
-              <View style={[styles.statusDot, isOnline ? styles.statusDotOnline : styles.statusDotOffline]} />
-              <Text style={[styles.statusText, isOnline ? styles.statusTextOnline : styles.statusTextOffline]}>
-                {isOnline ? 'Online' : 'Offline'}
-              </Text>
-            </View>
-          </View>
-        </View>
-      </TouchableOpacity>
-    </Animated.View>
+    <View style={styles.progressBarContainer}>
+      <Animated.View style={[styles.progressBar, { width }]} />
+    </View>
   );
 };
 
-// --- COMPONENTE PRINCIPAL DO ECRÃ ---
+const CameraCard = React.memo(
+  ({
+    item,
+    onPress,
+    styles,
+    updateTimestamp,
+  }: {
+    item: Camera;
+    onPress: () => void;
+    styles: any;
+    updateTimestamp: number;
+  }) => {
+    const isOnline = item.status === 'online';
+
+    const buildUrl = (timestamp: number) =>
+      isOnline
+        ? `https://cameras.riobranco.ac.gov.br/api/camera?code=${item.codigo}&t=${timestamp}`
+        : `https://placehold.co/800x450/e0e0e0/757575?text=Offline`;
+
+    const [currentUrl, setCurrentUrl] = useState<string>(() => buildUrl(updateTimestamp));
+    const [imageLoading, setImageLoading] = useState(false);
+    const [imageError, setImageError] = useState(false);
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      setImageError(false);
+      const newUrl = buildUrl(updateTimestamp);
+      setImageLoading(true);
+      setCurrentUrl(newUrl);
+    }, [updateTimestamp, item.codigo, isOnline]);
+
+    useEffect(() => {
+      fadeAnim.setValue(0);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    }, [currentUrl]);
+
+    return (
+      <Animated.View style={[{ opacity: fadeAnim }, styles.cardContainer]}>
+        <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85} disabled={!isOnline}>
+          <View style={styles.imageWrapper}>
+            {!isOnline || imageError ? (
+              <View style={styles.offlineOverlay}>
+                <Feather name={imageError ? 'alert-triangle' : 'video-off'} size={32} color="#9ca3af" />
+                <Text style={styles.offlineText}>{imageError ? 'Erro na Imagem' : 'Offline'}</Text>
+              </View>
+            ) : (
+              <Image
+                key={`${item.codigo}-${currentUrl}-${updateTimestamp}`}
+                source={{ uri: currentUrl }}
+                style={styles.cameraImage}
+                resizeMode="cover"
+                onLoadStart={() => setImageLoading(true)}
+                onLoad={() => setImageLoading(false)}
+                onError={() => {
+                  setImageLoading(false);
+                  setImageError(true);
+                }}
+              />
+            )}
+
+            <View style={[styles.statusBadge]}>
+              <View style={[styles.statusDot, isOnline ? styles.statusDotOnline : styles.statusDotOffline]} />
+              <Text style={[styles.statusText]}>{isOnline ? 'Online' : 'Offline'}</Text>
+            </View>
+          </View>
+
+          <View style={styles.infoContainer}>
+            <Text style={styles.cameraName} numberOfLines={2}>
+              {item.nome}
+            </Text>
+            <Text style={styles.cameraCategory} numberOfLines={1}>
+              {item.categoria}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+);
+
+const ListHeader = React.memo(
+  ({
+    searchText,
+    setSearchText,
+    categories,
+    selectedCategory,
+    setSelectedCategory,
+    lastUpdated,
+    styles,
+    isDarkTheme,
+    showAllCategories,
+    toggleShowAllCategories,
+  }: any) => {
+    const categoriesToShow = showAllCategories ? categories : categories.slice(0, INITIAL_CATEGORIES_TO_SHOW);
+
+    return (
+      <View style={styles.listHeader}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar por nome..."
+          value={searchText}
+          onChangeText={setSearchText}
+          placeholderTextColor={isDarkTheme ? '#9ca3af' : '#6b7280'}
+        />
+        <View style={styles.categoriesContainer}>
+          {categoriesToShow.map((category: string) => (
+            <TouchableOpacity
+              key={category}
+              style={[styles.categoryButton, selectedCategory === category && styles.categoryButtonSelected]}
+              onPress={() => setSelectedCategory(category)}
+            >
+              <Text style={[styles.categoryText, selectedCategory === category && styles.categoryTextSelected]}>
+                {category === 'all' ? 'Todas' : category}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {categories.length > INITIAL_CATEGORIES_TO_SHOW && (
+          <TouchableOpacity onPress={toggleShowAllCategories} style={styles.showMoreButton}>
+            <Text style={styles.showMoreText}>{showAllCategories ? 'Ver menos ▲' : 'Ver mais ▼'}</Text>
+          </TouchableOpacity>
+        )}
+        <Text style={styles.title}>Câmeras de Rio Branco</Text>
+        {lastUpdated && <Text style={styles.lastUpdatedText}>Atualizado às {lastUpdated}</Text>}
+      </View>
+    );
+  }
+);
+
 export default function HomeScreen() {
   const systemColorScheme = useColorScheme();
   const isDarkTheme = systemColorScheme === 'dark';
-
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const isTablet = width >= TABLET_BREAKPOINT;
-  const numColumns = isTablet ? 2 : 1;
-  const styles = getDynamicStyles(isDarkTheme, isTablet);
-  
+  const { styles, colors } = getDynamicStyles(isDarkTheme, isTablet);
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [cameras, setCameras] = useState<Camera[]>([]);
   const [lastUpdated, setLastUpdated] = useState('');
   const [updateTimestamp, setUpdateTimestamp] = useState(Date.now());
-  const [progress, setProgress] = useState(0);
-  
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showScrollToTopButton, setShowScrollToTopButton] = useState(false);
+  const [allFetchedCameras, setAllFetchedCameras] = useState<Camera[]>([]);
+  const [page, setPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const { listMode } = useSettings();
+  const flatListRef = useRef<FlatList<any>>(null);
   const router = useRouter();
   const user = auth.currentUser;
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const fetchCameras = useCallback(async () => {
-    setProgress(0);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(id);
+  }, [searchText]);
+
+  const fetchAllCameras = useCallback(async (isRefreshing = false) => {
+    if (!isRefreshing) setIsLoading(true);
     try {
-      setError(null);
-      const response = await fetch(API_URL);
-      if (!response.ok) throw new Error('A resposta do servidor não foi OK.');
-      const data = await response.json();
-      setCameras(data);
+      const response = await fetch(`${API_URL}?t=${Date.now()}`);
+      const data: Camera[] = await response.json();
+
+      setAllFetchedCameras(data);
       setLastUpdated(new Date().toLocaleTimeString('pt-BR'));
       setUpdateTimestamp(Date.now());
-    } catch (e: any) {
-      setError(e.message || "Não foi possível carregar as câmaras.");
+    } catch (e) {
+      console.error(e);
+    } finally {
+      if (!isRefreshing) setIsLoading(false);
     }
   }, []);
-  
+
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoading(true);
-      await fetchCameras();
-      setIsLoading(false);
+    fetchAllCameras();
+    const interval = setInterval(() => {
+      fetchAllCameras(true);
+    }, FULL_REFRESH_INTERVAL_MS);
+    return () => {
+      clearInterval(interval);
+      abortControllerRef.current?.abort();
     };
-    loadInitialData();
-  }, [fetchCameras]);
+  }, [fetchAllCameras]);
 
   useEffect(() => {
     if (isLoading) return;
 
-    const intervalId = setInterval(() => {
-      setProgress(currentProgress => {
-        const progressIncrement = (1000 / UPDATE_INTERVAL_MS) * 100;
-        const newProgress = currentProgress + progressIncrement;
-        if (newProgress >= 100) {
-          fetchCameras();
-          return 0;
-        }
-        return newProgress;
+    const startProgress = () => {
+      progressAnim.setValue(0);
+      const animation = Animated.timing(progressAnim, {
+        toValue: 100,
+        duration: FULL_REFRESH_INTERVAL_MS,
+        useNativeDriver: false,
       });
-    }, 1000);
+      animation.start();
+    };
 
-    return () => clearInterval(intervalId);
-  }, [isLoading, fetchCameras]);
+    startProgress();
+  }, [isLoading, updateTimestamp]);
 
-  const handleLogout = () => {
-    signOut(auth);
+  useEffect(() => {
+    setPage(1);
+    if (flatListRef.current) {
+      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [selectedCategory, debouncedSearch]);
+
+  const categories = useMemo(() => {
+    const onlineCams = allFetchedCameras.filter((cam) => cam.status === 'online');
+    const uniqueCategories = [...new Set(onlineCams.map((cam) => cam.categoria).filter(Boolean))].sort();
+    return ['all', ...uniqueCategories];
+  }, [allFetchedCameras]);
+
+  const filteredCameras = useMemo(() => {
+    let camerasToFilter = allFetchedCameras.filter((cam) => cam.status === 'online');
+    if (selectedCategory !== 'all') {
+      camerasToFilter = camerasToFilter.filter((camera) => camera.categoria === selectedCategory);
+    }
+    if (debouncedSearch.trim() !== '') {
+      const lowercasedSearchText = debouncedSearch.toLowerCase();
+      camerasToFilter = camerasToFilter.filter((camera) => camera.nome.toLowerCase().includes(lowercasedSearchText));
+    }
+    camerasToFilter.sort((a, b) => {
+        const levelA = a.level || 1;
+        const levelB = b.level || 1;
+        if (levelA !== levelB) {
+            return levelA - levelB; 
+        }
+        return a.nome.localeCompare(b.nome);
+    });
+    return camerasToFilter;
+  }, [debouncedSearch, selectedCategory, allFetchedCameras]);
+
+  const visibleCameras = useMemo(() => {
+    if (listMode === 'pagination') {
+      const startIndex = (page - 1) * ITEMS_PER_PAGE;
+      const endIndex = startIndex + ITEMS_PER_PAGE;
+      return filteredCameras.slice(startIndex, endIndex);
+    }
+    return filteredCameras.slice(0, page * ITEMS_PER_PAGE);
+  }, [filteredCameras, page, listMode]);
+
+  const dataForList: ListItem[] = useMemo(() => {
+    if (!visibleCameras.length) {
+        return [];
+    }
+    const list: ListItem[] = [...visibleCameras];
+    const hasAdminCamerasInTotal = filteredCameras.some(cam => cam.level === 3);
+    const hasPublicCamerasInTotal = filteredCameras.some(cam => cam.level !== 3);
+    
+    const firstAdminIndexOnPage = list.findIndex(item => (item as Camera).level === 3);
+    if (firstAdminIndexOnPage !== -1) {
+        const firstAdminInTotal = filteredCameras.find(cam => cam.level === 3);
+        if ((list[firstAdminIndexOnPage] as Camera).codigo === firstAdminInTotal?.codigo) {
+            list.splice(firstAdminIndexOnPage, 0, { type: 'header', title: 'Acesso Restrito' });
+        }
+    }
+    const firstCameraOnPage = list.find(item => !('type' in item)) as Camera | undefined;
+    if (hasAdminCamerasInTotal && hasPublicCamerasInTotal && firstCameraOnPage?.codigo === filteredCameras[0]?.codigo) {
+        if (!('type' in list[0] && list[0].type === 'header')) {
+            list.unshift({ type: 'header', title: 'Câmeras Públicas' });
+        }
+    }
+    
+    return list;
+  }, [visibleCameras, filteredCameras]);
+
+
+  const handleLoadMore = useCallback(() => {
+    if (isLoadingMore || page * ITEMS_PER_PAGE >= filteredCameras.length) return;
+    setIsLoadingMore(true);
+    setTimeout(() => {
+      setPage((prev) => prev + 1);
+      setIsLoadingMore(false);
+    }, 500);
+  }, [isLoadingMore, page, filteredCameras.length]);
+
+  const handleScrollToTop = useCallback(() => {
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    handleScrollToTop();
   };
+
+  const handleLogout = () => signOut(auth);
 
   const handleCardPress = (camera: Camera) => {
     if (camera.status !== 'online') return;
-    router.push({
-      pathname: `/[code]`, 
-      params: { 
-        code: camera.codigo,
-        camera: JSON.stringify(camera)
-      }
-    });
+    router.push({ pathname: `/[code]`, params: { code: camera.codigo } });
+  };
+
+  const toggleShowAllCategories = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setShowAllCategories((prev) => !prev);
+  };
+
+  const handleScroll = useCallback(
+    (event: any) => {
+      const offsetY = event.nativeEvent.contentOffset.y;
+      setShowScrollToTopButton(offsetY > height);
+    },
+    [height]
+  );
+
+  const renderFooter = () => {
+    const PaginationControls = () => {
+      const totalPages = Math.ceil(filteredCameras.length / ITEMS_PER_PAGE);
+      if (totalPages <= 1) return null;
+
+      const range = (from: number, to: number) => {
+        let i = from;
+        const result = [];
+        while (i <= to) {
+          result.push(i);
+          i++;
+        }
+        return result;
+      };
+
+      const getPageNumbers = () => {
+        if (isTablet) {
+          if (totalPages <= 7) return range(1, totalPages);
+          const startPage = Math.max(2, page - 2);
+          const endPage = Math.min(totalPages - 1, page + 2);
+          let pages: (string | number)[] = range(startPage, endPage);
+          if (startPage > 2) pages.unshift('...');
+          if (endPage < totalPages - 1) pages.push('...');
+          return [1, ...pages, totalPages];
+        }
+        if (totalPages <= 5) return range(1, totalPages);
+        if (page <= 3) return [...range(1, 4), '...', totalPages];
+        if (page >= totalPages - 2) return [1, '...', ...range(totalPages - 3, totalPages)];
+        return [1, '...', page - 1, page, page + 1, '...', totalPages];
+      };
+
+      const pages = getPageNumbers();
+
+      return (
+        <View style={styles.paginationContainer}>
+          <TouchableOpacity
+            style={[styles.paginationNavButton, page === 1 && styles.paginationButtonDisabled]}
+            disabled={page === 1}
+            onPress={() => handlePageChange(page - 1)}
+          >
+            <Feather name="chevron-left" size={20} color={page === 1 ? colors.subtleText : colors.text} />
+          </TouchableOpacity>
+
+          <View style={styles.paginationPagesContainer}>
+            {pages.map((pageNum, index) => {
+              if (typeof pageNum === 'string') {
+                return (
+                  <View key={`ellipsis-${index}`} style={styles.paginationEllipsisContainer}>
+                    <Text style={styles.paginationEllipsisText}>{pageNum}</Text>
+                  </View>
+                );
+              }
+              return (
+                <TouchableOpacity
+                  key={pageNum}
+                  style={[styles.paginationButton, page === pageNum && styles.paginationButtonActive]}
+                  onPress={() => handlePageChange(pageNum as number)}
+                >
+                  <Text style={[styles.paginationText, page === pageNum && styles.paginationTextActive]}>{pageNum}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.paginationNavButton, page === Math.ceil(filteredCameras.length / ITEMS_PER_PAGE) && styles.paginationButtonDisabled]}
+            disabled={page === Math.ceil(filteredCameras.length / ITEMS_PER_PAGE)}
+            onPress={() => handlePageChange(page + 1)}
+          >
+            <Feather
+              name="chevron-right"
+              size={20}
+              color={page === Math.ceil(filteredCameras.length / ITEMS_PER_PAGE) ? colors.subtleText : colors.text}
+            />
+          </TouchableOpacity>
+        </View>
+      );
+    };
+
+    if (listMode === 'pagination') {
+      return <PaginationControls />;
+    }
+    if (listMode === 'infinite' && isLoadingMore) {
+      return <ActivityIndicator style={{ marginVertical: 20 }} size="large" color={colors.primary} />;
+    }
+    return null;
   };
 
   return (
-    // CORREÇÃO: SafeAreaView agora envolve todo o conteúdo
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
       <Stack.Screen options={{ headerShown: false }} />
-      <UpdateProgressBar progress={progress} styles={styles} />
-      
+
+      {!isLoading && <UpdateProgressBar progressAnim={progressAnim} styles={styles} />}
+
       <View style={styles.container}>
         <View style={styles.header}>
           <View>
@@ -207,180 +465,288 @@ export default function HomeScreen() {
             <Text style={styles.userName}>{user?.displayName || 'Utilizador'}</Text>
           </View>
           <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-              <Ionicons name="log-out-outline" size={26} color={styles.logoutButtonText.color} />
+            <Ionicons name="log-out-outline" size={26} color={colors.primary} />
           </TouchableOpacity>
         </View>
-        
+
         {isLoading ? (
           <View style={styles.center}>
-            <ActivityIndicator size="large" color={styles.title.color} />
-            <Text style={styles.loadingText}>A carregar câmaras...</Text>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.loadingText}>Carregar câmeras...</Text>
           </View>
         ) : error ? (
           <View style={styles.center}>
             <Feather name="alert-circle" size={48} color={styles.errorText.color} />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchCameras}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => fetchAllCameras()}>
               <Text style={styles.retryButtonText}>Tentar Novamente</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <FlatList
-            data={cameras}
-            numColumns={numColumns}
-            key={numColumns}
-            keyExtractor={(item) => item.codigo}
-            renderItem={({ item }) => <CameraCard item={item} onPress={() => handleCardPress(item)} styles={styles} updateTimestamp={updateTimestamp} />}
-            contentContainerStyle={styles.listContentContainer}
-            ListHeaderComponent={() => (
-              <View style={styles.listHeader}>
-                <Text style={styles.title}>Câmaras em Rio Branco</Text>
-                {lastUpdated && <Text style={styles.lastUpdatedText}>Atualizado às {lastUpdated}</Text>}
-              </View>
+          <>
+            <FlatList
+              ref={flatListRef}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+              data={dataForList}
+              numColumns={isTablet ? 2 : 1}
+              key={isTablet ? 'tablet' : 'phone'}
+              keyExtractor={(item) => ('type' in item ? item.title : item.codigo)}
+              renderItem={({ item }) => {
+                if ('type' in item && item.type === 'header') {
+                  return (
+                    <View style={styles.sectionHeaderContainer}>
+                      <Text style={styles.sectionHeaderText}>{item.title}</Text>
+                    </View>
+                  );
+                }
+                return (
+                  <CameraCard
+                    item={item as Camera}
+                    onPress={() => handleCardPress(item as Camera)}
+                    styles={styles}
+                    updateTimestamp={updateTimestamp}
+                  />
+                );
+              }}
+              contentContainerStyle={styles.listContentContainer}
+              ListHeaderComponent={
+                <ListHeader
+                  searchText={searchText}
+                  setSearchText={setSearchText}
+                  categories={categories}
+                  selectedCategory={selectedCategory}
+                  setSelectedCategory={setSelectedCategory}
+                  lastUpdated={lastUpdated}
+                  styles={styles}
+                  isDarkTheme={isDarkTheme}
+                  showAllCategories={showAllCategories}
+                  toggleShowAllCategories={toggleShowAllCategories}
+                />
+              }
+              ListEmptyComponent={() => (
+                <View style={styles.emptyContainer}>
+                  <Feather name="camera-off" size={48} color="#9ca3af" />
+                  <Text style={styles.emptyText}>Nenhuma câmara encontrada.</Text>
+                </View>
+              )}
+              keyboardShouldPersistTaps="handled"
+              onEndReached={listMode === 'infinite' ? handleLoadMore : undefined}
+              onEndReachedThreshold={0.5}
+              ListFooterComponent={renderFooter()}
+              initialNumToRender={10}
+              windowSize={11}
+            />
+
+            {showScrollToTopButton && listMode === 'infinite' && (
+              <TouchableOpacity style={styles.scrollToTopButton} onPress={handleScrollToTop} activeOpacity={0.7}>
+                <Feather name="arrow-up" size={24} color={isDarkTheme ? colors.text : '#FFF'} />
+              </TouchableOpacity>
             )}
-            ListEmptyComponent={() => (
-              <View style={styles.emptyContainer}>
-                <Feather name="camera-off" size={48} color="#9ca3af" />
-                <Text style={styles.emptyText}>Nenhuma câmara encontrada.</Text>
-              </View>
-            )}
-          />
+          </>
         )}
       </View>
     </SafeAreaView>
   );
 }
 
-// --- ESTILOS ---
 const getDynamicStyles = (isDarkTheme?: boolean, isTablet?: boolean) => {
   const colors = {
-    background: isDarkTheme ? '#111827' : '#f3f4f6',
+    background: isDarkTheme ? '#111827' : '#f4f5f7',
     text: isDarkTheme ? '#f9fafb' : '#111827',
     subtleText: isDarkTheme ? '#9ca3af' : '#6b7280',
     card: isDarkTheme ? '#1f2937' : '#ffffff',
     primary: isDarkTheme ? '#a78bfa' : '#4f46e5',
-    border: isDarkTheme ? '#374151' : '#e5e7eb'
+    border: isDarkTheme ? '#374151' : '#e5e7eb',
+    online: isDarkTheme ? '#22c55e' : '#16a34a',
+    offline: isDarkTheme ? '#ef4444' : '#dc2626',
   };
 
-  return StyleSheet.create({
-    // CORREÇÃO: Estilo para SafeAreaView e um container geral
-    safeArea: { 
-      flex: 1, 
-      backgroundColor: colors.background,
-      // Garante o espaçamento no topo em dispositivos Android
-      paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0 
-    },
-    container: { flex: 1 },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-    header: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 12,
-      paddingHorizontal: 20,
-    },
-    greetingText: {
-      fontSize: 16,
-      color: colors.subtleText,
-    },
-    userName: {
+  return {
+    colors,
+    styles: StyleSheet.create({
+      progressBarContainer: {
+        height: 3,
+        width: '100%',
+        backgroundColor: colors.border,
+      },
+      progressBar: {
+        height: '100%',
+        backgroundColor: colors.primary,
+      },
+      safeArea: { flex: 1, backgroundColor: colors.background },
+      container: { flex: 1 },
+      center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+      header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 20 },
+      greetingText: { fontSize: 16, color: colors.subtleText },
+      userName: { fontSize: 20, fontWeight: 'bold', color: colors.text },
+      logoutButton: { padding: 8, borderRadius: 99, backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)' },
+      listHeader: { marginBottom: 16 },
+      title: { fontSize: 32, fontWeight: 'bold', color: colors.text, marginTop: 16, paddingHorizontal: 20, letterSpacing: -0.5 },
+      lastUpdatedText: { fontSize: 12, color: colors.subtleText, marginTop: 4, paddingHorizontal: 20 },
+      listContentContainer: { paddingBottom: 12 },
+      cardContainer: { flex: 1, paddingHorizontal: isTablet ? 8 : 16 },
+      card: {
+        backgroundColor: colors.card,
+        borderRadius: 16,
+        marginBottom: 24,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: isDarkTheme ? 0.3 : 0.08,
+        shadowRadius: 12,
+        elevation: 8,
+        borderWidth: isDarkTheme ? 1 : 0,
+        borderColor: colors.border,
+      },
+      imageWrapper: {
+        width: '100%',
+        aspectRatio: 16 / 9,
+        backgroundColor: colors.border,
+        justifyContent: 'center',
+        alignItems: 'center',
+        minHeight: isTablet ? undefined : 160,
+      },
+      cameraImage: { width: '100%', height: '100%' },
+      offlineOverlay: { justifyContent: 'center', alignItems: 'center' },
+      offlineText: { marginTop: 8, color: colors.subtleText, fontWeight: '500' },
+      infoContainer: { paddingHorizontal: 16, paddingVertical: 12 },
+      cameraName: { fontSize: 17, fontWeight: '600', color: colors.text, marginBottom: 4 },
+      cameraCategory: { fontSize: 13, color: colors.subtleText },
+      statusBadge: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 99,
+        backgroundColor: 'rgba(0, 0, 0, 0.45)',
+      },
+      statusDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
+      statusDotOnline: { backgroundColor: colors.online },
+      statusDotOffline: { backgroundColor: colors.offline },
+      statusText: { fontSize: 12, fontWeight: 'bold', color: '#FFFFFF' },
+      loadingText: { marginTop: 16, fontSize: 16, color: colors.subtleText },
+      errorText: { textAlign: 'center', fontSize: 16, color: '#f87171', marginTop: 16, marginBottom: 24 },
+      retryButton: { backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
+      retryButtonText: { color: isDarkTheme ? '#111827' : '#f9fafb', fontWeight: '600' },
+      emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50, paddingTop: 50 },
+      emptyText: { fontSize: 16, color: colors.subtleText, marginTop: 16 },
+      searchInput: {
+        backgroundColor: colors.card,
+        color: colors.text,
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 16,
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      categoriesContainer: { paddingHorizontal: 16, marginBottom: 4, flexDirection: 'row', flexWrap: 'wrap' },
+      categoryButton: {
+        backgroundColor: 'transparent',
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginRight: 10,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      categoryButtonSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+      categoryText: { color: colors.subtleText, fontWeight: '500' },
+      categoryTextSelected: { color: isDarkTheme ? colors.background : '#fff', fontWeight: 'bold' },
+      showMoreButton: { paddingHorizontal: 16, paddingVertical: 4, alignSelf: 'flex-start', marginBottom: 8 },
+      showMoreText: { color: colors.primary, fontWeight: 'bold' },
+      sectionHeaderContainer: {
+        paddingHorizontal: isTablet ? 24 : 20,
+        paddingTop: 24,
+        paddingBottom: 8,
+        width: isTablet ? '100%' : undefined,
+      },
+      sectionHeaderText: {
         fontSize: 20,
         fontWeight: 'bold',
         color: colors.text,
-    },
-    logoutButton: {
-      padding: 8,
-      borderRadius: 99,
-      backgroundColor: isDarkTheme ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
-    },
-    logoutButtonText: {
-      color: colors.primary,
-    },
-    listHeader: {
-        paddingHorizontal: isTablet ? 8 : 4,
-        marginBottom: 16,
-    },
-    title: { fontSize: 28, fontWeight: 'bold', color: colors.text },
-    lastUpdatedText: { fontSize: 12, color: colors.subtleText, marginTop: 4 },
-    listContentContainer: {
-        paddingHorizontal: isTablet ? 12 : 16,
-        paddingBottom: 16,
-    },
-    cardContainer: {
+        letterSpacing: -0.2,
+      },
+      scrollToTopButton: {
+        position: 'absolute',
+        bottom: 30,
+        right: 20,
+        backgroundColor: colors.primary,
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        zIndex: 10,
+      },
+      paginationContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+        paddingHorizontal: isTablet ? 24 : 16,
+      },
+      paginationPagesContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         flex: 1,
-        padding: isTablet ? 4 : 0,
-    },
-    card: { 
-      backgroundColor: colors.card, 
-      borderRadius: 16, 
-      marginBottom: isTablet ? 8 : 16,
-      overflow: 'hidden',
-      shadowColor: '#000', 
-      shadowOffset: { width: 0, height: 4 }, 
-      shadowOpacity: isDarkTheme ? 0.3 : 0.08, 
-      shadowRadius: 8, 
-      elevation: 5,
-    },
-    imageWrapper: {
-      width: '100%', 
-      aspectRatio: 16 / 9, 
-      backgroundColor: isDarkTheme ? '#374151' : '#e5e7eb',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    cameraImage: { 
-      width: '100%', 
-      height: '100%',
-    },
-    offlineOverlay: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    offlineText: {
-      marginTop: 8,
-      color: colors.subtleText,
-      fontWeight: '500',
-    },
-    infoContainer: { padding: 16 },
-    cameraName: { fontSize: 18, fontWeight: '600', color: colors.text, marginBottom: 8 },
-    badgeContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    cameraCategory: { fontSize: 14, color: colors.subtleText, flex: 1, marginRight: 8 },
-    statusBadge: { 
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingHorizontal: 10, 
-      paddingVertical: 5, 
-      borderRadius: 99,
-    },
-    statusBadgeOnline: { backgroundColor: isDarkTheme ? 'rgba(34, 197, 94, 0.2)' : '#dcfce7' },
-    statusBadgeOffline: { backgroundColor: isDarkTheme ? 'rgba(239, 68, 68, 0.2)' : '#fee2e2' },
-    statusDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginRight: 6,
-    },
-    statusDotOnline: { backgroundColor: '#22c55e' },
-    statusDotOffline: { backgroundColor: '#ef4444' },
-    statusText: { fontSize: 12, fontWeight: 'bold' },
-    statusTextOnline: { color: isDarkTheme ? '#86efac' : '#166534' },
-    statusTextOffline: { color: isDarkTheme ? '#fca5a5' : '#991b1b' },
-    loadingText: { marginTop: 16, fontSize: 16, color: colors.subtleText },
-    errorText: { textAlign: 'center', fontSize: 16, color: '#f87171', marginTop: 16, marginBottom: 24 },
-    retryButton: {
-      backgroundColor: colors.primary,
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 8,
-    },
-    retryButtonText: {
-      color: isDarkTheme ? '#111827' : '#f9fafb',
-      fontWeight: '600',
-    },
-    emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50, paddingTop: 50 },
-    emptyText: { fontSize: 16, color: colors.subtleText, marginTop: 16 },
-    progressBarContainer: { height: 3, width: '100%', backgroundColor: colors.border },
-    progressBar: { height: '100%', backgroundColor: colors.primary },
-  });
+      },
+      paginationNavButton: {
+        width: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 22,
+        backgroundColor: colors.card,
+      },
+      paginationButton: {
+        minWidth: 44,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderRadius: 22,
+        marginHorizontal: isTablet ? 4 : 2,
+        paddingHorizontal: 8,
+      },
+      paginationButtonActive: {
+        backgroundColor: colors.primary,
+      },
+      paginationButtonDisabled: {
+        opacity: 0.5,
+      },
+      paginationText: {
+        color: colors.subtleText,
+        fontWeight: '700',
+        fontSize: 16,
+      },
+      paginationTextActive: {
+        color: isDarkTheme ? colors.background : '#FFF',
+      },
+      paginationEllipsisContainer: {
+        minWidth: isTablet ? 44 : 24,
+        height: 44,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginHorizontal: isTablet ? 4 : 2,
+      },
+      paginationEllipsisText: {
+        color: colors.subtleText,
+        fontSize: 16,
+        fontWeight: 'bold',
+      },
+    }),
+  };
 };
-

@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "CamRb",
+    "name": "CamRB",
     "slug": "camrb",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/camera-flat-icon-2.jpg",
+    "icon": "./assets/images/icone.png",
     "scheme": "camrb",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,13 +13,13 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/images/icone.png",
+        "backgroundImage": "./assets/images/icone.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.gabvictor.camrb"
     },
     "web": {
       "output": "static",
@@ -30,9 +30,6 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
             "backgroundColor": "#000000"
@@ -50,6 +47,15 @@
         "projectId": "8ad9ca6d-d016-47a4-85b5-6e8169908581"
       }
     },
-    "owner": "gabvictor"
+    "owner": "gabvictor",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/8ad9ca6d-d016-47a4-85b5-6e8169908581",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

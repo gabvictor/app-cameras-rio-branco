@@ -1,50 +1,121 @@
-# Welcome to your Expo app 👋
+# 📷 app-cameras-rio-branco
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+[![Expo](https://img.shields.io/badge/Expo-49.0.0-blue?logo=expo)](https://expo.dev/)
+[![React Native](https://img.shields.io/badge/React%20Native-0.76.0-61dafb?logo=react)](https://reactnative.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178c6?logo=typescript)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
-## Get started
+[![Stars](https://img.shields.io/github/stars/gabvictor/app-cameras-rio-branco?style=social)](https://github.com/gabvictor/app-cameras-rio-branco/stargazers)
+[![Forks](https://img.shields.io/github/forks/gabvictor/app-cameras-rio-branco?style=social)](https://github.com/gabvictor/app-cameras-rio-branco/forks)
+[![Issues](https://img.shields.io/github/issues/gabvictor/app-cameras-rio-branco)](https://github.com/gabvictor/app-cameras-rio-branco/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/gabvictor/app-cameras-rio-branco)](https://github.com/gabvictor/app-cameras-rio-branco/commits/main)
 
-1. Install dependencies
+Aplicativo mobile para visualização de **câmeras públicas de Rio Branco**.  
+Desenvolvido com **Expo + React Native + TypeScript**.  
 
-   ```bash
-   npm install
-   ```
+---
 
-2. Start the app
+## 📱 Preview
 
-   ```bash
-   npx expo start
-   ```
+| Tela Inicial | Visualização de Câmera | Tema Escuro/Claro |
+|--------------|-------------------------|-------------------|
+| ![Home](docs/screenshots/home.jpg) | ![Camera](docs/screenshots/camera.jpg) | ![DarkMode](docs/screenshots/lightmode.jpg) |
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## 🧭 Sumário
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- [Visão Geral](#-visão-geral)  
+- [Funcionalidades](#-funcionalidades)  
+- [Tecnologias](#-tecnologias)  
+- [Instalação](#-instalação)  
+- [Execução](#-execução)  
+- [Estrutura de Pastas](#-estrutura-de-pastas)  
+- [Contribuição](#-contribuição)  
+- [Licença](#-licença)  
 
-## Get a fresh project
+---
 
-When you're ready, run:
+## 🌎 Visão Geral
+
+O projeto tem como objetivo disponibilizar um **aplicativo simples e prático** para visualizar câmeras instaladas em pontos estratégicos de **Rio Branco**.
+
+- 🚦 Acompanhar trânsito em tempo real  
+- 👀 Visualizar diferentes locais da cidade  
+- 📡 Atualização em tempo real das câmeras  
+
+---
+
+## ⚡ Funcionalidades
+
+✔️ Listagem de câmeras públicas disponíveis  
+✔️ Visualização ao vivo  
+✔️ Suporte a tema claro/escuro  
+✔️ Interface responsiva  
+
+---
+
+## 🛠 Tecnologias
+
+- [Expo](https://expo.dev/)  
+- [React Native](https://reactnative.dev/)  
+- [TypeScript](https://www.typescriptlang.org/)  
+- [Context API](https://react.dev/reference/react/useContext)  
+- [React Hooks](https://react.dev/reference/react/hooks)  
+
+---
+
+## 💻 Instalação
 
 ```bash
-npm run reset-project
-```
+# Clone o repositório
+git clone https://github.com/gabvictor/app-cameras-rio-branco.git
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+# Acesse a pasta
+cd app-cameras-rio-branco
 
-## Learn more
+# Instale as dependências
+npm install
+# ou
+yarn install
+▶️ Execução
+bash
+Copiar código
+# Iniciar o Expo
+npx expo start
+Isso abrirá o painel do Expo Developer Tools.
+Você pode rodar no emulador Android/iOS ou testar direto no celular com o app Expo Go.
 
-To learn more about developing your project with Expo, look at the following resources:
+📂 Estrutura de Pastas
+bash
+Copiar código
+├── app/              # Rotas principais
+├── assets/           # Ícones, imagens e fontes
+├── components/       # Componentes reutilizáveis
+├── hooks/            # Hooks customizados
+├── scripts/          # Scripts auxiliares
+├── src/              # Tipos e utilitários
+├── package.json
+├── tsconfig.json
+├── app.json
+└── README.md
+🤝 Contribuição
+Contribuições são bem-vindas!
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Faça um fork do projeto
 
-## Join the community
+Crie uma branch: git checkout -b minha-feature
 
-Join our community of developers creating universal apps.
+Commit suas alterações: git commit -m "feat: minha nova feature"
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Envie: git push origin minha-feature
+
+Abra um Pull Request 🚀
+
+📜 Licença
+Este projeto está licenciado sob a licença MIT – veja o arquivo LICENSE para detalhes.
+
+👨‍💻 Autor
+Desenvolvido por Gabriel Victor.
+
+GitHub: @gabvictor

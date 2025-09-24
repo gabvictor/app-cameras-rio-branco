@@ -1,138 +1,50 @@
-<div align="center">
+# Welcome to your Expo app 👋
 
-CamRB - Câmaras de Rio Branco 📸
-Um visualizador de código aberto para as câmaras públicas de Rio Branco, Acre.
+This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
-</div>
+## Get started
 
-<p align="center">
-<img alt="Versão" src="https://www.google.com/search?q=https://img.shields.io/badge/version-1.0.0-blue%3Fstyle%3Dfor-the-badge%26logo%3Dnone">
-<img alt="Licença" src="https://www.google.com/search?q=https://img.shields.io/badge/license-MIT-green%3Fstyle%3Dfor-the-badge%26logo%3Dnone">
-<img alt="Expo" src="https://www.google.com/search?q=https://img.shields.io/badge/Expo-51-black%3Fstyle%3Dfor-the-badge%26logo%3Dexpo">
-<img alt="Firebase" src="https://www.google.com/search?q=https://img.shields.io/badge/Firebase-FFCA28%3Fstyle%3Dfor-the-badge%26logo%3Dfirebase%26logoColor%3Dblack">
-</p>
+1. Install dependencies
 
-<!-- Opcional: Adicione um GIF ou uma imagem do seu aplicativo aqui para um maior impacto visual. -->
+   ```bash
+   npm install
+   ```
 
-<!--
-<p align="center">
-<img src="URL_DO_SEU_GIF_OU_IMAGEM_AQUI" alt="Demonstração do App" width="300"/>
-</p>
--->
+2. Start the app
 
-<p align="center">
-<a href="#-funcionalidades">Funcionalidades</a> •
-<a href="#-tecnologias-utilizadas">Tecnologias</a> •
-<a href="#-como-executar-o-projeto">Como Executar</a> •
-<a href="#-como-contribuir">Contribuir</a>
-</p>
+   ```bash
+   npx expo start
+   ```
 
-✨ Funcionalidades
-📺 Visualização em Tempo Real: Acompanhe o feed das câmaras, com atualização automática das imagens.
+In the output, you'll find options to open the app in a
 
-🗺️ Mapa Interativo: Navegue por um mapa da cidade com a localização de todas as câmaras online, agrupadas para uma melhor performance.
+- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
+- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
+- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
+- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
-💬 Sistema de Comentários: Converse com outros utilizadores em tempo real sobre os eventos de cada câmara (requer login).
+You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
-🔐 Autenticação Segura: Crie uma conta ou faça login utilizando o Firebase Authentication, com verificação de e-mail e recuperação de senha.
+## Get a fresh project
 
-🔍 Busca e Filtragem: Encontre câmaras específicas por nome ou filtre por categorias.
+When you're ready, run:
 
-⚙️ Modo de Lista Configurável: Escolha entre rolagem infinita ou paginação para carregar a lista de câmaras.
+```bash
+npm run reset-project
+```
 
-📱 Aviso de Dados Móveis: Um pop-up alerta o utilizador sobre o alto consumo de internet ao usar dados móveis.
+This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
 
-🎨 Design Moderno: Interface limpa, com suporte a tema claro/escuro e layout adaptável para telemóveis e tablets.
+## Learn more
 
-🛠️ Tecnologias Utilizadas
-Este projeto foi construído utilizando as seguintes tecnologias:
+To learn more about developing your project with Expo, look at the following resources:
 
-Tecnologia
+- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
+- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
 
-Descrição
+## Join the community
 
-Expo (SDK 51)
+Join our community of developers creating universal apps.
 
-Framework para o desenvolvimento de aplicações móveis universais com React Native.
-
-React Native
-
-Biblioteca para criar interfaces de utilizador nativas.
-
-TypeScript
-
-Superset do JavaScript que adiciona tipagem estática para um código mais robusto.
-
-Firebase
-
-Utilizado para Authentication (autenticação) e Firestore (base de dados).
-
-Expo Router
-
-Sistema de navegação baseado em ficheiros.
-
-React Native WebView
-
-Componente para renderizar o mapa interativo.
-
-Leaflet.js
-
-Biblioteca de mapas utilizada dentro da WebView para exibir os marcadores.
-
-🚀 Como Executar o Projeto
-Para rodar este projeto localmente, siga os passos abaixo.
-
-Pré-requisitos
-Node.js (versão LTS)
-
-Git
-
-Conta no Firebase
-
-Passos
-Clone o repositório:
-
-git clone [https://github.com/gabvictor/app-cameras-rio-branco.git](https://github.com/gabvictor/app-cameras-rio-branco.git)
-cd app-cameras-rio-branco
-
-Instale as dependências:
-
-npm install
-
-Configure o Firebase:
-
-Crie um projeto no console do Firebase.
-
-Adicione uma aplicação da web (</>) ao seu projeto.
-
-Ative os serviços de Authentication (com o provedor de E-mail/Senha) e Firestore.
-
-Crie um ficheiro na pasta core chamado firebaseConfig.ts e cole as suas credenciais nele.
-
-<details>
-<summary>Clique para ver o exemplo do ficheiro <code>core/firebaseConfig.ts</code></summary>
-
-// core/firebaseConfig.ts
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-
-// Cole as suas credenciais do Firebase aqui
-const firebaseConfig = {
-  apiKey: "SUA_API_KEY",
-  authDomain: "SEU_AUTH_DOMAIN",
-  projectId: "SEU_PROJECT_ID",
-  storageBucket: "SEU_STORAGE_BUCKET",
-  messagingSenderId: "SEU_MESSAGING_SENDER_ID",
-  appId: "SEU_APP_ID"
-};
-
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-
-</details>
-
-Inicie a aplicação:
-
-npx expo start
+- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
+- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.

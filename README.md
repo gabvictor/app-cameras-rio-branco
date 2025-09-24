@@ -5,6 +5,11 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178c6?logo=typescript)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 
+[![Stars](https://img.shields.io/github/stars/gabvictor/app-cameras-rio-branco?style=social)](https://github.com/gabvictor/app-cameras-rio-branco/stargazers)
+[![Forks](https://img.shields.io/github/forks/gabvictor/app-cameras-rio-branco?style=social)](https://github.com/gabvictor/app-cameras-rio-branco/forks)
+[![Issues](https://img.shields.io/github/issues/gabvictor/app-cameras-rio-branco)](https://github.com/gabvictor/app-cameras-rio-branco/issues)
+[![Last Commit](https://img.shields.io/github/last-commit/gabvictor/app-cameras-rio-branco)](https://github.com/gabvictor/app-cameras-rio-branco/commits/main)
+
 Aplicativo mobile para visualização de **câmeras públicas de Rio Branco**.  
 Desenvolvido com **Expo + React Native + TypeScript**.  
 

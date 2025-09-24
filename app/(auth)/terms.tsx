@@ -39,17 +39,37 @@ export default function TermsScreen() {
           O desenvolvedor não tem controlo sobre o conteúdo ou disponibilidade das transmissões. Portanto, não se responsabiliza por qualquer imagem ou evento visualizado. Este aplicativo não possui qualquer vínculo governamental ou com a Prefeitura de Rio Branco.
         </Text>
 
-        <Text style={styles.sectionTitle}>3. Responsabilidade do Usuário</Text>
+        <Text style={styles.sectionTitle}>3. Responsabilidade e Conduta do Usuário</Text>
         <Text style={styles.paragraph}>
-          O Usuário assume total responsabilidade pelo uso das imagens. É estritamente proibido o uso das imagens para fins ilícitos, difamatórios, comerciais ou que violem a privacidade de terceiros.
+          O Usuário assume total responsabilidade pelo uso das imagens e por todo o conteúdo que publicar na plataforma, como comentários. É estritamente proibido o uso das imagens para fins ilícitos, difamatórios, comerciais ou que violem a privacidade de terceiros.
+        </Text>
+        <Text style={styles.paragraph}>
+          Ao utilizar a funcionalidade de comentários, o Usuário concorda em não publicar conteúdo que seja:
+        </Text>
+        <Text style={styles.listItem}>
+          • Abusivo, odioso, assediante, ou que promova discurso de ódio;
+        </Text>
+        <Text style={styles.listItem}>
+          • Spam, publicidade não solicitada ou correntes;
+        </Text>
+        <Text style={styles.listItem}>
+          • Que contenha informações pessoais de terceiros sem consentimento;
+        </Text>
+        <Text style={styles.listItem}>
+          • Ilegal, que promova atividades ilegais ou que infrinja direitos de autor.
         </Text>
 
-        <Text style={styles.sectionTitle}>4. Restrição de Idade</Text>
+        <Text style={styles.sectionTitle}>4. Direito de Remoção de Conteúdo</Text>
+        <Text style={styles.paragraph}>
+          O desenvolvedor reserva-se o direito de remover qualquer comentário ou conteúdo gerado pelo usuário, sem aviso prévio, por qualquer motivo, incluindo, mas não se limitando a, violações destes termos.
+        </Text>
+        
+        <Text style={styles.sectionTitle}>5. Restrição de Idade</Text>
         <Text style={styles.paragraph}>
           Para criar uma conta e utilizar este serviço, o Usuário deve ter pelo menos 18 anos de idade ou a idade de maioridade legal na sua jurisdição.
         </Text>
 
-        <Text style={styles.sectionTitle}>5. Política de Privacidade</Text>
+        <Text style={styles.sectionTitle}>6. Política de Privacidade</Text>
         <Text style={styles.paragraph}>
           Nós levamos a sua privacidade a sério. As informações que recolhemos são:
         </Text>
@@ -62,39 +82,44 @@ export default function TermsScreen() {
         <Text style={styles.paragraph}>
           Todos os dados de autenticação são geridos de forma segura através do serviço Firebase Authentication da Google. Não partilhamos as suas informações pessoais com terceiros.
         </Text>
+        <Text style={[styles.boldText, {fontSize: 16, marginBottom: 4}]}>Exclusão de Dados:</Text>
+        <Text style={styles.paragraph}>
+          O Usuário pode solicitar a exclusão de sua conta e dados associados a qualquer momento através da tela de perfil no aplicativo. A exclusão da conta removerá permanentemente os dados de autenticação (e-mail, nickname). Comentários feitos pelo usuário poderão ser anonimizados ou excluídos.
+        </Text>
 
-        <Text style={styles.sectionTitle}>6. Segurança da Conta</Text>
+        <Text style={styles.sectionTitle}>7. Segurança da Conta</Text>
         <Text style={styles.paragraph}>
           O Usuário é responsável por manter a confidencialidade da sua palavra-passe e por todas as atividades que ocorram na sua conta. O desenvolvedor não será responsável por qualquer perda ou dano resultante do incumprimento desta obrigação de segurança.
         </Text>
 
-        <Text style={styles.sectionTitle}>7. Disponibilidade do Serviço</Text>
+        <Text style={styles.sectionTitle}>8. Disponibilidade do Serviço</Text>
         <Text style={styles.paragraph}>
           O serviço é fornecido "como está". Não há garantias de que os URLs de acesso às câmaras estarão sempre funcionais.
         </Text>
 
-        <Text style={styles.sectionTitle}>8. Propriedade Intelectual</Text>
+        <Text style={styles.sectionTitle}>9. Propriedade Intelectual</Text>
         <Text style={styles.paragraph}>
           O software e o design deste aplicativo são propriedade do desenvolvedor. As imagens exibidas são propriedade dos seus respetivos operadores.
         </Text>
 
-        <Text style={styles.sectionTitle}>9. Modificações nos Termos</Text>
+        <Text style={styles.sectionTitle}>10. Modificações nos Termos</Text>
         <Text style={styles.paragraph}>
           O desenvolvedor reserva-se o direito de modificar estes termos a qualquer momento. A continuação do uso do aplicativo após qualquer alteração constitui a sua aceitação dos novos termos.
         </Text>
 
-        <Text style={styles.sectionTitle}>10. Rescisão de Acesso</Text>
+        <Text style={styles.sectionTitle}>11. Rescisão de Acesso</Text>
         <Text style={styles.paragraph}>
           O acesso de qualquer Usuário poderá ser bloqueado ou rescindido, sem aviso prévio, em caso de violação destes termos.
         </Text>
 
-        <Text style={styles.sectionTitle}>11. Lei Aplicável</Text>
+        <Text style={styles.sectionTitle}>12. Lei Aplicável</Text>
         <Text style={styles.paragraph}>
           Estes termos serão regidos pelas leis da República Federativa do Brasil.
         </Text>
 
-        <Text style={styles.sectionTitle}>12. Contato</Text>
+        <Text style={styles.sectionTitle}>13. Contato</Text>
         <Text style={styles.paragraph}>
+          {/* TODO: Substituir pelo seu e-mail de contato real */}
           Dúvidas sobre estes Termos? Entre em contato: [seu-email-de-contato@exemplo.com].
         </Text>
 

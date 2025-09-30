@@ -2,7 +2,7 @@
   "expo": {
     "name": "CamRB",
     "slug": "camrb",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icone.png",
     "scheme": "camrb",
@@ -13,9 +13,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/icone.png",
-        "backgroundImage": "./assets/images/icone.png"
+        "backgroundColor": "#1f2937",
+        "foregroundImage": "./assets/images/icone.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -30,9 +29,12 @@
       [
         "expo-splash-screen",
         {
+          "image": "./assets/images/icone.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
           "backgroundColor": "#ffffff",
           "dark": {
-            "backgroundColor": "#000000"
+            "backgroundColor": "#1f2937"
           }
         }
       ]

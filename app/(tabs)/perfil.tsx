@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, useColorScheme } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, useColorScheme, ScrollView } from 'react-native';
 import { auth } from '../../core/firebaseConfig';
 import { signOut, deleteUser } from 'firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, Link } from 'expo-router';
 
 export default function PerfilScreen() {
   const user = auth.currentUser;
@@ -12,18 +12,31 @@ export default function PerfilScreen() {
   const isDarkTheme = useColorScheme() === 'dark'; 
   const styles = getDynamicStyles(isDarkTheme);
 
-  const ProfileActionButton = ({ icon, text, onPress, color }: any) => (
-    <TouchableOpacity style={styles.actionButton} onPress={onPress}>
-      <Feather name={icon} size={22} color={color || styles.actionButtonText.color} />
-      <Text style={[styles.actionButtonText, { color: color || styles.actionButtonText.color }]}>{text}</Text>
-      <Feather name="chevron-right" size={22} color="#9ca3af" />
-    </TouchableOpacity>
-  );
+  const ProfileActionButton = ({ icon, text, onPress, color, isLink, href }: any) => {
+    const content = (
+        <>
+            <Feather name={icon} size={22} color={color || styles.actionButtonText.color} />
+            <Text style={[styles.actionButtonText, { color: color || styles.actionButtonText.color }]}>{text}</Text>
+            <Feather name="chevron-right" size={22} color="#9ca3af" />
+        </>
+    );
+
+    if(isLink) {
+        return (
+            <Link href={href} asChild>
+                <TouchableOpacity style={styles.actionButton}>{content}</TouchableOpacity>
+            </Link>
+        )
+    }
+
+    return (
+        <TouchableOpacity style={styles.actionButton} onPress={onPress}>{content}</TouchableOpacity>
+    );
+  };
 
   const handleLogout = () => {
     signOut(auth).catch((error) => {
       Alert.alert("Erro", "Não foi possível sair. Tente novamente.");
-      console.error(error);
     });
   };
 
@@ -40,7 +53,7 @@ export default function PerfilScreen() {
             if (user) {
               deleteUser(user).catch((error) => {
                 if (error.code === 'auth/requires-recent-login') {
-                  Alert.alert("Segurança", "Para excluir sua conta, por favor, faça login novamente.");
+                  Alert.alert("Segurança", "Para excluir sua conta, por favor, faça login novamente e tente de novo.");
                   handleLogout();
                 } else {
                   Alert.alert("Erro", "Não foi possível excluir a conta.");
@@ -55,7 +68,7 @@ export default function PerfilScreen() {
   
   if (!user) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, {justifyContent: 'center', alignItems: 'center'}]}>
         <Text style={styles.infoText}>Nenhum usuário conectado</Text>
         <TouchableOpacity style={styles.loginButton} onPress={() => router.replace('/login')}>
            <Text style={styles.loginButtonText}>Fazer Login</Text>
@@ -66,25 +79,29 @@ export default function PerfilScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.profileContainer}>
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>
-            {user.displayName ? user.displayName.charAt(0).toUpperCase() : '?'}
-          </Text>
-        </View>
-        <Text style={styles.userName}>{user.displayName || 'Usuário'}</Text>
-        <Text style={styles.userEmail}>{user.email}</Text>
-      </View>
-      
-      <View style={styles.actionsContainer}>
-        <Text style={styles.sectionTitle}>Minha Conta</Text>
-        <ProfileActionButton icon="edit-3" text="Alterar Nickname" onPress={() => Alert.alert("Em breve", "Funcionalidade para alterar o nickname.")} />
-        <ProfileActionButton icon="lock" text="Alterar Senha" onPress={() => Alert.alert("Em breve", "Funcionalidade para alterar a senha.")} />
-        
-        <Text style={styles.sectionTitle}>Sair</Text>
-        <ProfileActionButton icon="log-out" text="Sair do aplicativo" onPress={handleLogout} color="#ef4444"/>
-        <ProfileActionButton icon="trash-2" text="Excluir minha conta" onPress={handleDeleteAccount} color="#ef4444"/>
-      </View>
+        <ScrollView>
+            <View style={styles.profileContainer}>
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarText}>
+                  {user.displayName ? user.displayName.charAt(0).toUpperCase() : '?'}
+                </Text>
+              </View>
+              <Text style={styles.userName}>{user.displayName || 'Usuário'}</Text>
+              <Text style={styles.userEmail}>{user.email}</Text>
+            </View>
+            
+            <View style={styles.actionsContainer}>
+              <Text style={styles.sectionTitle}>Conteúdo</Text>
+              <ProfileActionButton icon="star" text="Câmeras Favoritas" isLink href="/(tabs)/favoritos" />
+
+              <Text style={styles.sectionTitle}>Minha Conta</Text>
+              <ProfileActionButton icon="edit-3" text="Alterar Nickname" onPress={() => Alert.alert("Em breve", "Funcionalidade para alterar o nickname.")} />
+              
+              <Text style={styles.sectionTitle}>Sair</Text>
+              <ProfileActionButton icon="log-out" text="Sair do aplicativo" onPress={handleLogout} color="#ef4444"/>
+              <ProfileActionButton icon="trash-2" text="Excluir minha conta" onPress={handleDeleteAccount} color="#ef4444"/>
+            </View>
+        </ScrollView>
     </SafeAreaView>
   );
 }
@@ -106,8 +123,6 @@ const getDynamicStyles = (isDarkTheme: boolean) => StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    borderWidth: 2,
-    borderColor: isDarkTheme ? '#374151' : '#fff'
   },
   avatarText: {
     color: '#fff',
@@ -126,6 +141,7 @@ const getDynamicStyles = (isDarkTheme: boolean) => StyleSheet.create({
   },
   actionsContainer: {
     paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   sectionTitle: {
     fontSize: 16,
@@ -144,10 +160,6 @@ const getDynamicStyles = (isDarkTheme: boolean) => StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 12,
     marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
   },
   actionButtonText: {
     flex: 1,
@@ -174,4 +186,3 @@ const getDynamicStyles = (isDarkTheme: boolean) => StyleSheet.create({
       fontWeight: 'bold',
   },
 });
-

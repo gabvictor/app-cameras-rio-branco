@@ -1,4 +1,4 @@
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   StyleSheet,
@@ -12,14 +12,14 @@ import {
   useColorScheme,
   Platform,
   StatusBar,
-  Share,
+  Share, 
   Linking,
   KeyboardAvoidingView,
   FlatList,
 } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, Timestamp } from "firebase/firestore";
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, Timestamp, setDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { format, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -81,8 +81,7 @@ export default function CameraDetailScreen() {
   const systemColorScheme = useColorScheme();
   const isDarkTheme = systemColorScheme === 'dark';
   const styles = getDynamicStyles(isDarkTheme);
-
-  const router = useRouter();
+  const navigation = useNavigation();
   const { code } = useLocalSearchParams<{ code: string }>();
 
   const db = getFirestore();
@@ -96,9 +95,57 @@ export default function CameraDetailScreen() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   const flatListRef = useRef<FlatList<Comment>>(null);
 
+  // 🔹 Observa se a câmera está favoritada
+  useEffect(() => {
+    if (!user || !code) return;
+    const userDocRef = doc(db, 'userData', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      setIsFavorite(docSnap.exists() && (docSnap.data().favoriteCameras || []).includes(code));
+    });
+    return () => unsubscribe();
+  }, [user, code]);
+
+  // 🔹 Alternar favorito
+  const handleToggleFavorite = async () => {
+    if (!user || !code) {
+      Alert.alert("Login Necessário", "Você precisa estar logado para favoritar câmeras.");
+      return;
+    }
+    const userDocRef = doc(db, 'userData', user.uid);
+    try {
+      await setDoc(userDocRef, { 
+        favoriteCameras: isFavorite ? arrayRemove(code) : arrayUnion(code) 
+      }, { merge: true });
+    } catch (e) {
+      console.error("Erro ao atualizar favorito:", e);
+      Alert.alert("Erro", "Não foi possível atualizar os favoritos.");
+    }
+  };
+
+  // 🔹 Atualiza título e ícone no header
+  useEffect(() => {
+    if (liveCameraData?.nome) {
+      navigation.setOptions({
+        title: liveCameraData.nome,
+        headerRight: () => (
+          <TouchableOpacity onPress={handleToggleFavorite} style={{ marginRight: 15 }}>
+            <Ionicons 
+              name={isFavorite ? "star" : "star-outline"} 
+              size={26} 
+              color={isFavorite ? '#FFD700' : (isDarkTheme ? '#FFF' : '#000')} 
+            />
+          </TouchableOpacity>
+        )
+      });
+    }
+  }, [liveCameraData, isFavorite, isDarkTheme]);
+
+  // 🔹 Buscar dados da câmera
   const fetchCameraData = useCallback(async () => {
     if (!code) return;
     try {
@@ -116,6 +163,7 @@ export default function CameraDetailScreen() {
     fetchCameraData();
   }, [fetchCameraData]);
 
+  // 🔹 Atualiza imagem da câmera
   useEffect(() => {
     if (!liveCameraData) return;
     setIsFirstLoad(true);
@@ -130,10 +178,11 @@ export default function CameraDetailScreen() {
       const offlineUrl = 'https://placehold.co/800x600/333333/ffffff?text=Offline';
       setStableImageSource(offlineUrl);
       setImageSource(offlineUrl);
-      if (isFirstLoad) setIsFirstLoad(false);
+      setIsFirstLoad(false);
     }
   }, [liveCameraData]);
 
+  // 🔹 Escutar comentários
   useEffect(() => {
     if (!code) return;
     const q = query(collection(db, "cameras", code, "comments"), orderBy("timestamp", "asc"));
@@ -143,16 +192,17 @@ export default function CameraDetailScreen() {
     return unsubscribe;
   }, [code]);
 
-  const handleGoBack = () => router.canGoBack() && router.back();
-
   const handleShare = async () => {
-    if (!liveCameraData) return;
+    if (!liveCameraData || isSharing) return;
+    const deepLink = `camrb://tabs/${liveCameraData.codigo}`;
+    const message = `Veja a câmera "${liveCameraData.nome}" ao vivo em Rio Branco!\n\n${deepLink}`;
+    setIsSharing(true);
     try {
-      await Share.share({
-        message: `Veja a transmissão da câmera "${liveCameraData.nome}" em Rio Branco!`,
-      });
+      await Share.share({ message, url: deepLink });
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível compartilhar.');
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -168,11 +218,9 @@ export default function CameraDetailScreen() {
 
   const handleSendComment = async () => {
     if (!user || !commentText.trim() || !code || isSending) return;
-
     const textToSend = commentText.trim();
     setCommentText("");
     setIsSending(true);
-
     try {
       await addDoc(collection(db, "cameras", code, "comments"), {
         userId: user.uid,
@@ -202,44 +250,37 @@ export default function CameraDetailScreen() {
     ]);
   };
 
-  if (!liveCameraData) return (
-    <SafeAreaView style={styles.safeArea}>
-      <Stack.Screen options={{ title: 'Carregando...' }} />
-      <View style={styles.container}><ActivityIndicator size="large" color={isDarkTheme ? '#fff' : '#000'} /></View>
-    </SafeAreaView>
-  );
+  if (!liveCameraData) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}><ActivityIndicator size="large" color={isDarkTheme ? '#fff' : '#000'} /></View>
+      </SafeAreaView>
+    );
+  }
 
   const isOnline = liveCameraData.status === 'online';
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
+    <SafeAreaView style={styles.safeArea} edges={['bottom', 'left', 'right']}>
       <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
-      <Stack.Screen options={{ headerShown: false }} />
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleGoBack} style={styles.headerButton}><Feather name="chevron-left" size={26} color={styles.headerButtonText.color} /></TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{liveCameraData.nome}</Text>
-          <View style={{ width: 40 }} />
-        </View>
+      {/* Imagem da câmera */}
+      <View style={styles.imageContainer}>
+        {stableImageSource && <Image key="stable" source={{ uri: stableImageSource }} style={styles.cameraFeed} />}
+        {imageSource && isOnline && <Image key="live" source={{ uri: imageSource }} style={StyleSheet.absoluteFill} onLoad={() => { setStableImageSource(imageSource); if (isFirstLoad) setIsFirstLoad(false); }} />}
+        {isFirstLoad && isOnline && <View style={styles.loaderContainer}><ActivityIndicator size="large" color="#fff" /></View>}
+        
+        {user && (
+          <View style={styles.watermarkContainer}>
+            <Text style={styles.watermarkText}>
+              UID: {user.uid}
+            </Text>
+          </View>
+        )}
+      </View>
 
-        <View style={styles.imageContainer}>
-          {stableImageSource && <Image key="stable" source={{ uri: stableImageSource }} style={styles.cameraFeed} />}
-          {imageSource && isOnline && <Image key="live" source={{ uri: imageSource }} style={StyleSheet.absoluteFill} onLoad={() => { setStableImageSource(imageSource); if (isFirstLoad) setIsFirstLoad(false); }} />}
-          {isFirstLoad && isOnline && <View style={styles.loaderContainer}><ActivityIndicator size="large" color="#fff" /></View>}
-          
-          {user && (
-            <View style={styles.watermarkContainer}>
-              <Text style={styles.watermarkText}>
-                UID: {user.uid}
-              </Text>
-            </View>
-          )}
-        </View>
-
+      {/* Conteúdo e comentários */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={90}>
         <View style={styles.contentContainer}>
           <FlatList
             ref={flatListRef}
@@ -252,9 +293,20 @@ export default function CameraDetailScreen() {
                   <Feather name="map-pin" size={20} color={styles.secondaryButtonText.color} />
                   <Text style={styles.secondaryButtonText}>Ver no Mapa</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleShare}>
-                  <Feather name="share-2" size={20} color={styles.primaryButtonText.color} />
-                  <Text style={styles.primaryButtonText}>Compartilhar</Text>
+
+                <TouchableOpacity 
+                  style={[styles.button, styles.primaryButton, isSharing && styles.buttonDisabled]} 
+                  onPress={handleShare}
+                  disabled={isSharing}
+                >
+                  {isSharing ? (
+                    <ActivityIndicator color={styles.primaryButtonText.color} />
+                  ) : (
+                    <>
+                      <Feather name="share-2" size={20} color={styles.primaryButtonText.color} />
+                      <Text style={styles.primaryButtonText}>Compartilhar</Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             }
@@ -262,6 +314,7 @@ export default function CameraDetailScreen() {
             ListFooterComponent={<View style={{ height: 20 }} />}
           />
 
+          {/* Input de comentários */}
           <View style={styles.commentInputContainer}>
             <TextInput
               placeholder="Escreva um comentário..."
@@ -269,16 +322,10 @@ export default function CameraDetailScreen() {
               value={commentText}
               onChangeText={setCommentText}
               style={styles.commentInput}
-              multiline={false}
-              blurOnSubmit={true}
               returnKeyType="send"
               onSubmitEditing={handleSendComment}
             />
-            <TouchableOpacity
-              style={styles.commentButton}
-              onPress={handleSendComment}
-              disabled={isSending || !commentText.trim()}
-            >
+            <TouchableOpacity style={styles.commentButton} onPress={handleSendComment} disabled={isSending || !commentText.trim()}>
               <Feather name="send" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -301,14 +348,9 @@ const getDynamicStyles = (isDarkTheme?: boolean) => {
   return StyleSheet.create({
     safeArea: { flex: 1, backgroundColor: colors.background },
     container: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 10, paddingVertical: 12 },
-    headerButton: { padding: 5 },
-    headerButtonText: { color: colors.primary, fontSize: 16 },
-    headerTitle: { color: colors.text, fontSize: 18, fontWeight: '600', flex: 1, textAlign: 'center', marginHorizontal: 10 },
     imageContainer: { backgroundColor: '#000', width: '100%', aspectRatio: 16 / 9, justifyContent: 'center', alignItems: 'center' },
     cameraFeed: { width: '100%', height: '100%' },
     loaderContainer: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
-
     watermarkContainer: {
       position: 'absolute',
       bottom: 8,
@@ -323,7 +365,6 @@ const getDynamicStyles = (isDarkTheme?: boolean) => {
       fontSize: 10,
       fontWeight: '600',
     },
-
     contentContainer: {
       flex: 1,
       paddingHorizontal: 15,
@@ -335,7 +376,6 @@ const getDynamicStyles = (isDarkTheme?: boolean) => {
     secondaryButton: { backgroundColor: isDarkTheme ? '#374151' : '#e5e7eb' },
     secondaryButtonText: { color: colors.text, fontSize: 16, fontWeight: '600' },
     buttonDisabled: { opacity: 0.5 },
-
     commentItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
     commentHeader: {
       flexDirection: 'row',
@@ -349,7 +389,6 @@ const getDynamicStyles = (isDarkTheme?: boolean) => {
       color: colors.subtleText,
     },
     commentText: { color: colors.text, flexWrap: 'wrap' },
-
     commentInputContainer: { flexDirection: 'row', paddingVertical: 10, alignItems: 'flex-end', borderTopWidth: 1, borderColor: colors.border },
     commentInput: { flex: 1, padding: 12, borderRadius: 12, backgroundColor: colors.card, color: colors.text, minHeight: 48, maxHeight: 120 },
     commentButton: { backgroundColor: colors.primary, padding: 12, borderRadius: 12, marginLeft: 8 },

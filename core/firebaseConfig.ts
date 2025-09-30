@@ -1,8 +1,10 @@
-import { initializeApp, getApp, getApps } from "firebase/app";
-// @ts-ignore - Ignorando o erro de tipo para permitir a compilação.
+import { initializeApp, getApps, getApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+// @ts-ignore - Usando a sua inicialização de autenticação que é mais robusta para React Native
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// Usando a sua configuração que já contém as chaves corretas
 const firebaseConfig = {
     apiKey: "AIzaSyCQgDMwDnVbjhWdw6MYP1K754TAAsdhsy0",
     authDomain: "camerasriobranco.firebaseapp.com",
@@ -19,8 +21,15 @@ if (!getApps().length) {
   app = getApp();
 }
 
+// A sua inicialização de autenticação com persistência
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(AsyncStorage)
 });
 
-export { auth };
+// Adicionando a inicialização do Firestore
+const db = getFirestore(app);
+
+// Exportando 'auth' e 'db' para serem usados em toda a aplicação
+// Exportando 'auth' e 'db' para serem usados em toda a aplicação
+export { auth, db, firebaseConfig };
+

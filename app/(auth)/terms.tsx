@@ -58,6 +58,10 @@ export default function TermsScreen() {
         <Text style={styles.listItem}>
           • Ilegal, que promova atividades ilegais ou que infrinja direitos de autor.
         </Text>
+        {/* SUGESTÃO 2 IMPLEMENTADA ABAIXO */}
+        <Text style={styles.paragraph}>
+          Para promover a responsabilidade e a segurança na plataforma, a visualização do conteúdo pode incluir uma marca d'água discreta com um identificador de sua conta. O Usuário concorda em não tentar remover, ocultar ou alterar esta marca d'água.
+        </Text>
 
         <Text style={styles.sectionTitle}>4. Direito de Remoção de Conteúdo</Text>
         <Text style={styles.paragraph}>
@@ -84,7 +88,9 @@ export default function TermsScreen() {
         </Text>
         <Text style={[styles.boldText, {fontSize: 16, marginBottom: 4}]}>Exclusão de Dados:</Text>
         <Text style={styles.paragraph}>
-          O Usuário pode solicitar a exclusão de sua conta e dados associados a qualquer momento através da tela de perfil no aplicativo. A exclusão da conta removerá permanentemente os dados de autenticação (e-mail, nickname). Comentários feitos pelo usuário poderão ser anonimizados ou excluídos.
+          O Usuário pode solicitar a exclusão de sua conta e dados associados a qualquer momento através da tela de perfil no aplicativo. A exclusão da conta removerá permanentemente os dados de autenticação (e-mail, nickname).
+          {/* SUGESTÃO 3 IMPLEMENTADA ABAIXO */}
+          Comentários feitos pelo usuário serão anonimizados ou excluídos.
         </Text>
 
         <Text style={styles.sectionTitle}>7. Segurança da Conta</Text>

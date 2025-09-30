@@ -14,18 +14,19 @@ import {
   StatusBar,
   TextInput,
   LayoutAnimation,
-  UIManager,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { signOut } from 'firebase/auth';
+import { doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, setDoc } from 'firebase/firestore';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { auth } from '../../core/firebaseConfig';
-import { useSettings } from '../../core/SettingsContext';
+import { auth, db } from '../../core/firebaseConfig';
+import { useSettings } from '../../core/SettingsContext'; // ✅ CORREÇÃO APLICADA AQUI
 
 const API_URL = 'https://camerasriobranco.site/status-cameras';
 const FULL_REFRESH_INTERVAL_MS = 15 * 1000;
-const TABLET_BREAKPOINT = 568; //arrumar para 768 dps
+const TABLET_BREAKPOINT = 568;
 const INITIAL_CATEGORIES_TO_SHOW = 5;
 const ITEMS_PER_PAGE = 16;
 const SEARCH_DEBOUNCE_MS = 250;
@@ -60,11 +61,15 @@ const CameraCard = React.memo(
     onPress,
     styles,
     updateTimestamp,
+    isFavorite,
+    onToggleFavorite,
   }: {
     item: Camera;
     onPress: () => void;
     styles: any;
     updateTimestamp: number;
+    isFavorite: boolean;
+    onToggleFavorite: (code: string) => void;
   }) => {
     const isOnline = item.status === 'online';
 
@@ -113,6 +118,18 @@ const CameraCard = React.memo(
                 }}
               />
             )}
+
+            <TouchableOpacity
+              style={styles.favoriteButton}
+              onPress={() => onToggleFavorite(item.codigo)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons
+                name={isFavorite ? "star" : "star-outline"}
+                size={28}
+                color={isFavorite ? "#FFD700" : "#FFFFFF"}
+              />
+            </TouchableOpacity>
 
             <View style={[styles.statusBadge]}>
               <View style={[styles.statusDot, isOnline ? styles.statusDotOnline : styles.statusDotOffline]} />
@@ -203,11 +220,51 @@ export default function HomeScreen() {
   const [searchText, setSearchText] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [favorites, setFavorites] = useState<string[]>([]);
   const { listMode } = useSettings();
   const flatListRef = useRef<FlatList<any>>(null);
   const router = useRouter();
   const user = auth.currentUser;
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (!user) {
+      setFavorites([]);
+      return;
+    }
+    const userDocRef = doc(db, 'userData', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setFavorites(docSnap.data().favoriteCameras || []);
+      } else {
+        setFavorites([]);
+      }
+    });
+    return () => unsubscribe();
+  }, [user]);
+
+  const handleToggleFavorite = async (cameraCode: string) => {
+    if (!user) {
+      Alert.alert("Login Necessário", "Você precisa estar logado para favoritar câmeras.");
+      return;
+    }
+    const userDocRef = doc(db, 'userData', user.uid);
+    const isCurrentlyFavorite = favorites.includes(cameraCode);
+    try {
+      if (isCurrentlyFavorite) {
+        await updateDoc(userDocRef, { favoriteCameras: arrayRemove(cameraCode) });
+      } else {
+        await updateDoc(userDocRef, { favoriteCameras: arrayUnion(cameraCode) });
+      }
+    } catch (e: any) {
+      if (e.code === 'not-found') {
+        await setDoc(userDocRef, { favoriteCameras: [cameraCode] });
+      } else {
+        console.error("Failed to update favorite:", e);
+        Alert.alert("Erro", "Não foi possível favoritar a câmera.");
+      }
+    }
+  };
 
   useEffect(() => {
     const id = setTimeout(() => setDebouncedSearch(searchText), SEARCH_DEBOUNCE_MS);
@@ -219,7 +276,6 @@ export default function HomeScreen() {
     try {
       const response = await fetch(`${API_URL}?t=${Date.now()}`);
       const data: Camera[] = await response.json();
-
       setAllFetchedCameras(data);
       setLastUpdated(new Date().toLocaleTimeString('pt-BR'));
       setUpdateTimestamp(Date.now());
@@ -243,17 +299,14 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (isLoading) return;
-
     const startProgress = () => {
       progressAnim.setValue(0);
-      const animation = Animated.timing(progressAnim, {
+      Animated.timing(progressAnim, {
         toValue: 100,
         duration: FULL_REFRESH_INTERVAL_MS,
         useNativeDriver: false,
-      });
-      animation.start();
+      }).start();
     };
-
     startProgress();
   }, [isLoading, updateTimestamp]);
 
@@ -283,7 +336,7 @@ export default function HomeScreen() {
         const levelA = a.level || 1;
         const levelB = b.level || 1;
         if (levelA !== levelB) {
-            return levelA - levelB; 
+            return levelA - levelB;
         }
         return a.nome.localeCompare(b.nome);
     });
@@ -306,7 +359,7 @@ export default function HomeScreen() {
     const list: ListItem[] = [...visibleCameras];
     const hasAdminCamerasInTotal = filteredCameras.some(cam => cam.level === 3);
     const hasPublicCamerasInTotal = filteredCameras.some(cam => cam.level !== 3);
-    
+
     const firstAdminIndexOnPage = list.findIndex(item => (item as Camera).level === 3);
     if (firstAdminIndexOnPage !== -1) {
         const firstAdminInTotal = filteredCameras.find(cam => cam.level === 3);
@@ -320,10 +373,9 @@ export default function HomeScreen() {
             list.unshift({ type: 'header', title: 'Câmeras Públicas' });
         }
     }
-    
+
     return list;
   }, [visibleCameras, filteredCameras]);
-
 
   const handleLoadMore = useCallback(() => {
     if (isLoadingMore || page * ITEMS_PER_PAGE >= filteredCameras.length) return;
@@ -367,7 +419,6 @@ export default function HomeScreen() {
     const PaginationControls = () => {
       const totalPages = Math.ceil(filteredCameras.length / ITEMS_PER_PAGE);
       if (totalPages <= 1) return null;
-
       const range = (from: number, to: number) => {
         let i = from;
         const result = [];
@@ -377,7 +428,6 @@ export default function HomeScreen() {
         }
         return result;
       };
-
       const getPageNumbers = () => {
         if (isTablet) {
           if (totalPages <= 7) return range(1, totalPages);
@@ -393,9 +443,7 @@ export default function HomeScreen() {
         if (page >= totalPages - 2) return [1, '...', ...range(totalPages - 3, totalPages)];
         return [1, '...', page - 1, page, page + 1, '...', totalPages];
       };
-
       const pages = getPageNumbers();
-
       return (
         <View style={styles.paginationContainer}>
           <TouchableOpacity
@@ -405,7 +453,6 @@ export default function HomeScreen() {
           >
             <Feather name="chevron-left" size={20} color={page === 1 ? colors.subtleText : colors.text} />
           </TouchableOpacity>
-
           <View style={styles.paginationPagesContainer}>
             {pages.map((pageNum, index) => {
               if (typeof pageNum === 'string') {
@@ -426,7 +473,6 @@ export default function HomeScreen() {
               );
             })}
           </View>
-
           <TouchableOpacity
             style={[styles.paginationNavButton, page === Math.ceil(filteredCameras.length / ITEMS_PER_PAGE) && styles.paginationButtonDisabled]}
             disabled={page === Math.ceil(filteredCameras.length / ITEMS_PER_PAGE)}
@@ -455,9 +501,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle={isDarkTheme ? 'light-content' : 'dark-content'} />
       <Stack.Screen options={{ headerShown: false }} />
-
       {!isLoading && <UpdateProgressBar progressAnim={progressAnim} styles={styles} />}
-
       <View style={styles.container}>
         <View style={styles.header}>
           <View>
@@ -468,7 +512,6 @@ export default function HomeScreen() {
             <Ionicons name="log-out-outline" size={26} color={colors.primary} />
           </TouchableOpacity>
         </View>
-
         {isLoading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -491,7 +534,7 @@ export default function HomeScreen() {
               data={dataForList}
               numColumns={isTablet ? 2 : 1}
               key={isTablet ? 'tablet' : 'phone'}
-              keyExtractor={(item) => ('type' in item ? item.title : item.codigo)}
+              keyExtractor={(item) => ('type' in item ? item.title : (item as Camera).codigo)}
               renderItem={({ item }) => {
                 if ('type' in item && item.type === 'header') {
                   return (
@@ -500,12 +543,15 @@ export default function HomeScreen() {
                     </View>
                   );
                 }
+                const cameraItem = item as Camera;
                 return (
                   <CameraCard
-                    item={item as Camera}
-                    onPress={() => handleCardPress(item as Camera)}
+                    item={cameraItem}
+                    onPress={() => handleCardPress(cameraItem)}
                     styles={styles}
                     updateTimestamp={updateTimestamp}
+                    isFavorite={favorites.includes(cameraItem.codigo)}
+                    onToggleFavorite={handleToggleFavorite}
                   />
                 );
               }}
@@ -537,7 +583,6 @@ export default function HomeScreen() {
               initialNumToRender={10}
               windowSize={11}
             />
-
             {showScrollToTopButton && listMode === 'infinite' && (
               <TouchableOpacity style={styles.scrollToTopButton} onPress={handleScrollToTop} activeOpacity={0.7}>
                 <Feather name="arrow-up" size={24} color={isDarkTheme ? colors.text : '#FFF'} />
@@ -565,6 +610,16 @@ const getDynamicStyles = (isDarkTheme?: boolean, isTablet?: boolean) => {
   return {
     colors,
     styles: StyleSheet.create({
+      favoriteButton: {
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        zIndex: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.8,
+        shadowRadius: 2,
+      },
       progressBarContainer: {
         height: 3,
         width: '100%',

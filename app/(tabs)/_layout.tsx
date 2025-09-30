@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { useColorScheme, TouchableOpacity, Text, StyleSheet, View } from 'react-native';
+import { useColorScheme, TouchableOpacity, Text, StyleSheet } from 'react-native';
 
 export default function TabsLayout() {
   const colorScheme = useColorScheme();
@@ -51,20 +51,13 @@ export default function TabsLayout() {
         }}
       />
 
+      {/* ✅ NOVO SEPARADOR ADICIONADO */}
       <Tabs.Screen
-        name="configuracao"
+        name="favoritos"
         options={{
-          title: 'Ajustes',
-          tabBarIcon: ({ color }) => <Feather name="settings" size={28} color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
-        name="perfil"
-        options={{
-          title: 'Perfil',
+          title: 'Favoritos',
           tabBarIcon: ({ color, size }) => (
-            <Feather name="user" size={size} color={color} />
+            <Feather name="star" size={size} color={color} />
           ),
         }}
       />
@@ -78,9 +71,28 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
+        name="perfil"
+        options={{
+          title: 'Perfil',
+          tabBarIcon: ({ color, size }) => (
+            <Feather name="user" size={size} color={color} />
+          ),
+        }}
+      />
+      
+      <Tabs.Screen
+        name="configuracao"
+        options={{
+          title: 'Ajustes',
+          tabBarIcon: ({ color }) => <Feather name="settings" size={24} color={color} />,
+        }}
+      />
+
+      {/* Ecrã de detalhes da câmara (fica escondido da barra de separadores) */}
+      <Tabs.Screen
         name="[code]"
         options={{
-          href: null,
+          href: null, // Esconde o ecrã da barra de separadores
           headerShown: true,
           headerTitleAlign: 'center',
           headerStyle: { backgroundColor: colors.background },
@@ -92,10 +104,10 @@ export default function TabsLayout() {
               <Text style={styles.headerLeftText}>Voltar</Text>
             </TouchableOpacity>
           ),
-          tabBarStyle: { display: 'none' },
+          tabBarStyle: { display: 'none' }, // Esconde a barra de separadores neste ecrã
         }}
       />
     </Tabs>
-
   );
 }
+
